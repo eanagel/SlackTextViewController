@@ -30,7 +30,7 @@ NSString * const SLKKeyboardDidHideNotification =   @"SLKKeyboardDidHideNotifica
 }
 
 // The shared scrollView pointer, either a tableView or collectionView
-@property (nonatomic, weak) UIScrollView *scrollViewProxy;
+@property (nonatomic) UIScrollView *scrollView;
 
 // Auto-Layout height constraints used for updating their constants
 @property (nonatomic, strong) NSLayoutConstraint *scrollViewHC;
@@ -66,14 +66,12 @@ NSString * const SLKKeyboardDidHideNotification =   @"SLKKeyboardDidHideNotifica
 @end
 
 @implementation SLKTextViewController
-@synthesize tableView = _tableView;
-@synthesize collectionView = _collectionView;
 @synthesize typingIndicatorView = _typingIndicatorView;
 @synthesize textInputbar = _textInputbar;
 @synthesize autoCompletionView = _autoCompletionView;
 @synthesize autoCompleting = _autoCompleting;
-@synthesize scrollViewProxy = _scrollViewProxy;
 @synthesize presentedInPopover = _presentedInPopover;
+@synthesize scrollView = _scrollView;
 
 #pragma mark - Initializer
 
@@ -87,28 +85,26 @@ NSString * const SLKKeyboardDidHideNotification =   @"SLKKeyboardDidHideNotifica
     return [self initWithTableViewStyle:UITableViewStylePlain];
 }
 
-- (instancetype)initWithTableViewStyle:(UITableViewStyle)style
+- (instancetype)initWithScrollView:(UIScrollView *)scrollView
 {
     NSAssert([self class] != [SLKTextViewController class], @"Oops! You must subclass SLKTextViewController.");
-    
+
     if (self = [super initWithNibName:nil bundle:nil])
     {
-        self.scrollViewProxy = [self tableViewWithStyle:style];
+        self.scrollView = scrollView;
         [self _commonInit];
     }
     return self;
 }
 
+- (instancetype)initWithTableViewStyle:(UITableViewStyle)style
+{
+    return [self initWithScrollView:[[UITableView alloc] initWithFrame:CGRectZero style:style]];
+}
+
 - (instancetype)initWithCollectionViewLayout:(UICollectionViewLayout *)layout
 {
-    NSAssert([self class] != [SLKTextViewController class], @"Oops! You must subclass SLKTextViewController.");
-    
-    if (self = [super initWithNibName:nil bundle:nil])
-    {
-        self.scrollViewProxy = [self collectionViewWithLayout:layout];
-        [self _commonInit];
-    }
-    return self;
+    return [self initWithScrollView:[[UICollectionView alloc] initWithFrame:CGRectZero collectionViewLayout:layout]];
 }
 
 - (instancetype)initWithCoder:(NSCoder *)decoder
@@ -121,10 +117,10 @@ NSString * const SLKKeyboardDidHideNotification =   @"SLKKeyboardDidHideNotifica
         UICollectionViewLayout *collectionViewLayout = [[self class] collectionViewLayoutForCoder:decoder];
         
         if ([collectionViewLayout isKindOfClass:[UICollectionViewLayout class]]) {
-            self.scrollViewProxy = [self collectionViewWithLayout:collectionViewLayout];
+            self.scrollView = [[UICollectionView alloc] initWithFrame:CGRectZero collectionViewLayout:collectionViewLayout];
         }
         else {
-            self.scrollViewProxy = [self tableViewWithStyle:tableViewStyle];
+            self.scrollView = [[UITableView alloc] initWithFrame:CGRectZero style:tableViewStyle];
         }
         
         [self _commonInit];
@@ -152,7 +148,7 @@ NSString * const SLKKeyboardDidHideNotification =   @"SLKKeyboardDidHideNotifica
 {
     [super loadView];
         
-    [self.view addSubview:self.scrollViewProxy];
+    [self.view addSubview:self.scrollView];
     [self.view addSubview:self.autoCompletionView];
     [self.view addSubview:self.typingIndicatorView];
     [self.view addSubview:self.textInputbar];
@@ -182,7 +178,7 @@ NSString * const SLKKeyboardDidHideNotification =   @"SLKKeyboardDidHideNotifica
 {
     [super viewDidAppear:animated];
     
-    [self.scrollViewProxy flashScrollIndicators];
+    [self.scrollView flashScrollIndicators];
     
     self.isViewVisible = YES;
 }
@@ -230,32 +226,15 @@ NSString * const SLKKeyboardDidHideNotification =   @"SLKKeyboardDidHideNotifica
     return nil;
 }
 
-- (UITableView *)tableViewWithStyle:(UITableViewStyle)style
+- (UITableView *)tableView
 {
-    if (!_tableView)
-    {
-        _tableView = [[UITableView alloc] initWithFrame:CGRectZero style:style];
-        _tableView.translatesAutoresizingMaskIntoConstraints = NO;
-        _tableView.backgroundColor = [UIColor whiteColor];
-        _tableView.scrollsToTop = YES;
-        _tableView.dataSource = self;
-        _tableView.delegate = self;
-    }
-    return _tableView;
+    return [_scrollView isKindOfClass:[UITableView class]] ? (UITableView *)_scrollView : nil;
 }
 
-- (UICollectionView *)collectionViewWithLayout:(UICollectionViewLayout *)layout
+
+- (UICollectionView *)collectionView
 {
-    if (!_collectionView)
-    {
-        _collectionView = [[UICollectionView alloc] initWithFrame:CGRectZero collectionViewLayout:layout];
-        _collectionView.translatesAutoresizingMaskIntoConstraints = NO;
-        _collectionView.backgroundColor = [UIColor whiteColor];
-        _collectionView.scrollsToTop = YES;
-        _collectionView.dataSource = self;
-        _collectionView.delegate = self;
-    }
-    return _collectionView;
+    return [_scrollView isKindOfClass:[UICollectionView class]] ? (UICollectionView *)_scrollView : nil;
 }
 
 - (UITableView *)autoCompletionView
@@ -308,7 +287,7 @@ NSString * const SLKKeyboardDidHideNotification =   @"SLKKeyboardDidHideNotifica
 
 - (BOOL)isEditing
 {
-    if (_tableView.isEditing) {
+    if (self.tableView.isEditing) {
         return YES;
     }
     
@@ -578,19 +557,38 @@ NSString * const SLKKeyboardDidHideNotification =   @"SLKKeyboardDidHideNotifica
 
 #pragma mark - Setters
 
-- (void)setScrollViewProxy:(UIScrollView *)scrollView
+- (void)setScrollView:(UIScrollView *)scrollView
 {
-    if ([_scrollViewProxy isEqual:scrollView]) {
+    if ([_scrollView isEqual:scrollView]) {
         return;
     }
-    
+
+    if ([scrollView isKindOfClass:[UITableView class]]) {
+        UITableView *tableView = (UITableView *)scrollView;
+
+        tableView.translatesAutoresizingMaskIntoConstraints = NO;
+        tableView.backgroundColor = [UIColor whiteColor];
+        tableView.scrollsToTop = YES;
+        tableView.dataSource = self;
+        tableView.delegate = self;
+    }
+    else if ([scrollView isKindOfClass:[UICollectionView class]]) {
+        UICollectionView *collectionView = (UICollectionView *)scrollView;
+
+        collectionView.translatesAutoresizingMaskIntoConstraints = NO;
+        collectionView.backgroundColor = [UIColor whiteColor];
+        collectionView.scrollsToTop = YES;
+        collectionView.dataSource = self;
+        collectionView.delegate = self;
+    }
+
     _singleTapGesture = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(_didTapScrollView:)];
     _singleTapGesture.delegate = self;
     [_singleTapGesture requireGestureRecognizerToFail:scrollView.panGestureRecognizer];
     
     [scrollView addGestureRecognizer:self.singleTapGesture];
     
-    _scrollViewProxy = scrollView;
+    _scrollView = scrollView;
 }
 
 - (void)setAutoCompleting:(BOOL)autoCompleting
@@ -601,7 +599,7 @@ NSString * const SLKKeyboardDidHideNotification =   @"SLKKeyboardDidHideNotifica
     
     _autoCompleting = autoCompleting;
     
-    self.scrollViewProxy.scrollEnabled = !autoCompleting;
+    self.scrollView.scrollEnabled = !autoCompleting;
 }
 
 - (void)setInverted:(BOOL)inverted
@@ -612,7 +610,7 @@ NSString * const SLKKeyboardDidHideNotification =   @"SLKKeyboardDidHideNotifica
     
     _inverted = inverted;
 
-    self.scrollViewProxy.transform = inverted ? CGAffineTransformMake(1, 0, 0, -1, 0, 0) : CGAffineTransformIdentity;
+    self.scrollView.transform = inverted ? CGAffineTransformMake(1, 0, 0, -1, 0, 0) : CGAffineTransformIdentity;
     self.automaticallyAdjustsScrollViewInsets = inverted ? NO : YES;
 }
 
@@ -624,7 +622,7 @@ NSString * const SLKKeyboardDidHideNotification =   @"SLKKeyboardDidHideNotifica
     
     _keyboardPanningEnabled = enabled;
     
-    self.scrollViewProxy.keyboardDismissMode = enabled ? UIScrollViewKeyboardDismissModeInteractive : UIScrollViewKeyboardDismissModeNone;
+    self.scrollView.keyboardDismissMode = enabled ? UIScrollViewKeyboardDismissModeInteractive : UIScrollViewKeyboardDismissModeNone;
 }
 
 - (BOOL)_updateKeyboardStatus:(SLKKeyboardStatus)status
@@ -796,7 +794,7 @@ NSString * const SLKKeyboardDidHideNotification =   @"SLKKeyboardDidHideNotifica
     }
     
     // Don't show if the content offset is not at top (when inverted) or at bottom (when not inverted)
-    if ((self.isInverted && ![self.scrollViewProxy slk_isAtTop]) || (!self.isInverted && ![self.scrollViewProxy slk_isAtBottom])) {
+    if ((self.isInverted && ![self.scrollView slk_isAtTop]) || (!self.isInverted && ![self.scrollView slk_isAtBottom])) {
         return NO;
     }
     
@@ -915,12 +913,12 @@ NSString * const SLKKeyboardDidHideNotification =   @"SLKKeyboardDidHideNotifica
 
 - (BOOL)_scrollToTopIfNeeded
 {
-    if (!self.scrollViewProxy.scrollsToTop || self.keyboardStatus == SLKKeyboardStatusWillShow) {
+    if (!self.scrollView.scrollsToTop || self.keyboardStatus == SLKKeyboardStatusWillShow) {
         return NO;
     }
     
     if (self.isInverted) {
-        [self.scrollViewProxy slk_scrollToTopAnimated:YES];
+        [self.scrollView slk_scrollToTopAnimated:YES];
         return NO;
     }
     else {
@@ -936,10 +934,10 @@ NSString * const SLKKeyboardDidHideNotification =   @"SLKKeyboardDidHideNotifica
     }
 
     if (self.isInverted) {
-        [self.scrollViewProxy slk_scrollToTopAnimated:YES];
+        [self.scrollView slk_scrollToTopAnimated:YES];
     }
     else {
-        [self.scrollViewProxy slk_scrollToBottomAnimated:YES];
+        [self.scrollView slk_scrollToBottomAnimated:YES];
     }
     
     return YES;
@@ -1021,11 +1019,11 @@ NSString * const SLKKeyboardDidHideNotification =   @"SLKKeyboardDidHideNotifica
     // When inverted, we need to substract the top bars height (generally status bar + navigation bar's) to align the top of the
     // scrollview correctly to its top edge.
     if (self.inverted) {
-        UIEdgeInsets contentInset = self.scrollViewProxy.contentInset;
+        UIEdgeInsets contentInset = self.scrollView.contentInset;
         contentInset.bottom = [self _topBarsHeight];
         
-        self.scrollViewProxy.contentInset = contentInset;
-        self.scrollViewProxy.scrollIndicatorInsets = contentInset;
+        self.scrollView.contentInset = contentInset;
+        self.scrollView.scrollIndicatorInsets = contentInset;
     }
     
     // Substracts the bottom edge rect if present. This fixes the text input layout when using inside of a view controller container
@@ -1114,7 +1112,7 @@ NSString * const SLKKeyboardDidHideNotification =   @"SLKKeyboardDidHideNotifica
 
     // Programatically stops scrolling before updating the view constraints (to avoid scrolling glitch)
     if (status == SLKKeyboardStatusWillShow) {
-        [self.scrollViewProxy slk_stopScrolling];
+        [self.scrollView slk_stopScrolling];
     }
     
     // Hides the auto-completion view if the keyboard is being dismissed
@@ -1202,7 +1200,7 @@ NSString * const SLKKeyboardDidHideNotification =   @"SLKKeyboardDidHideNotifica
         return;
     }
     
-    if (self.scrollViewProxy.isDragging) {
+    if (self.scrollView.isDragging) {
         self.movingKeyboard = YES;
     }
 
@@ -1221,15 +1219,15 @@ NSString * const SLKKeyboardDidHideNotification =   @"SLKKeyboardDidHideNotifica
     CGPoint offset = _scrollViewOffsetBeforeDragging;
     
     if (self.isInverted) {
-        if (!self.scrollViewProxy.isDecelerating && self.scrollViewProxy.isTracking) {
-            self.scrollViewProxy.contentOffset = _scrollViewOffsetBeforeDragging;
+        if (!self.scrollView.isDecelerating && self.scrollView.isTracking) {
+            self.scrollView.contentOffset = _scrollViewOffsetBeforeDragging;
         }
     }
     else {
         CGFloat keyboardHeightDelta = _keyboardHeightBeforeDragging-self.keyboardHC.constant;
         offset.y -= keyboardHeightDelta;
         
-        self.scrollViewProxy.contentOffset = offset;
+        self.scrollView.contentOffset = offset;
     }
 }
 
@@ -1776,7 +1774,7 @@ NSString * const SLKKeyboardDidHideNotification =   @"SLKKeyboardDidHideNotifica
 
 - (void)_setupViewConstraints
 {
-    NSDictionary *views = @{@"scrollView": self.scrollViewProxy,
+    NSDictionary *views = @{@"scrollView": self.scrollView,
                             @"autoCompletionView": self.autoCompletionView,
                             @"typingIndicatorView": self.typingIndicatorView,
                             @"textInputbar": self.textInputbar,
@@ -1788,7 +1786,7 @@ NSString * const SLKKeyboardDidHideNotification =   @"SLKKeyboardDidHideNotifica
     [self.view addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"H:|[typingIndicatorView]|" options:0 metrics:nil views:views]];
     [self.view addConstraints:[NSLayoutConstraint constraintsWithVisualFormat:@"H:|[textInputbar]|" options:0 metrics:nil views:views]];
     
-    self.scrollViewHC = [self.view slk_constraintForAttribute:NSLayoutAttributeHeight firstItem:self.scrollViewProxy secondItem:nil];
+    self.scrollViewHC = [self.view slk_constraintForAttribute:NSLayoutAttributeHeight firstItem:self.scrollView secondItem:nil];
     self.autoCompletionViewHC = [self.view slk_constraintForAttribute:NSLayoutAttributeHeight firstItem:self.autoCompletionView secondItem:nil];
     self.typingIndicatorViewHC = [self.view slk_constraintForAttribute:NSLayoutAttributeHeight firstItem:self.typingIndicatorView secondItem:nil];
     self.textInputbarHC = [self.view slk_constraintForAttribute:NSLayoutAttributeHeight firstItem:self.textInputbar secondItem:nil];
@@ -1936,14 +1934,11 @@ NSString * const SLKKeyboardDidHideNotification =   @"SLKKeyboardDidHideNotifica
 
 - (void)dealloc
 {
-    _tableView.delegate = nil;
-    _tableView.dataSource = nil;
-    _tableView = nil;
-    
-    _collectionView.delegate = nil;
-    _collectionView.dataSource = nil;
-    _collectionView = nil;
-    
+    _scrollView.delegate = nil;
+    if ( [_scrollView respondsToSelector:@selector(setDataSource:)] )
+        [(id)_scrollView setDataSource:nil];
+    _scrollView = nil;
+
     _autoCompletionView.delegate = nil;
     _autoCompletionView.dataSource = nil;
     _autoCompletionView = nil;

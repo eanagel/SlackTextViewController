@@ -42,6 +42,9 @@ typedef NS_ENUM(NSUInteger, SLKKeyboardStatus) {
 /** @name A drop-in UIViewController subclass with a growing text input view and other useful messaging features. */
 NS_CLASS_AVAILABLE_IOS(7_0) @interface SLKTextViewController : UIViewController <UITextViewDelegate, UITableViewDelegate, UITableViewDataSource, UICollectionViewDelegate, UICollectionViewDataSource>
 
+/** The underlying scroll view managed by the controller object. Typically a UITableView or UICollectionView. */
+@property (nonatomic, readonly) UIScrollView *scrollView;
+
 /** The main table view managed by the controller object. Created by default initializing with -init or initWithNibName:bundle: */
 @property (nonatomic, readonly) UITableView *tableView;
 
@@ -105,6 +108,16 @@ NS_CLASS_AVAILABLE_IOS(7_0) @interface SLKTextViewController : UIViewController 
 /// @name Initialization
 ///------------------------------------------------
 
+
+/**
+ Initializes a text view controller to manage an arbitraty scroll view.
+ If you use the standard -init method, a table view with plain style will be created.
+
+ @param a UIScrollView instance that will be presented in the main content area. If this is a UITableView or UICollectionView instance, several standard properties will be set, including mapping the dataSource and delegate to the ViewController.
+ @return An initialized SLKTextViewController object or nil if the object could not be created.
+ */
+- (instancetype)initWithScrollView:(UIScrollView *)scrollView NS_DESIGNATED_INITIALIZER;
+
 /**
  Initializes a text view controller to manage a table view of a given style.
  If you use the standard -init method, a table view with plain style will be created.
@@ -112,7 +125,7 @@ NS_CLASS_AVAILABLE_IOS(7_0) @interface SLKTextViewController : UIViewController 
  @param style A constant that specifies the style of main table view that the controller object is to manage (UITableViewStylePlain or UITableViewStyleGrouped).
  @return An initialized SLKTextViewController object or nil if the object could not be created.
  */
-- (instancetype)initWithTableViewStyle:(UITableViewStyle)style NS_DESIGNATED_INITIALIZER;
+- (instancetype)initWithTableViewStyle:(UITableViewStyle)style;
 
 /**
  Initializes a collection view controller and configures the collection view with the provided layout.
@@ -121,7 +134,7 @@ NS_CLASS_AVAILABLE_IOS(7_0) @interface SLKTextViewController : UIViewController 
  @param layout The layout object to associate with the collection view. The layout controls how the collection view presents its cells and supplementary views.
  @return An initialized SLKTextViewController object or nil if the object could not be created.
  */
-- (instancetype)initWithCollectionViewLayout:(UICollectionViewLayout *)layout NS_DESIGNATED_INITIALIZER;
+- (instancetype)initWithCollectionViewLayout:(UICollectionViewLayout *)layout;
 
 /**
  Initializes either a table or collection view controller.
